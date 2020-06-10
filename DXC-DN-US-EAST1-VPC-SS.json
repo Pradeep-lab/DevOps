@@ -1,0 +1,1256 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "Creates a VPC for SS Enivornment",
+    "Parameters": {
+        "pPlatformVersion": {
+            "Type": "String",
+            "Default": "release-1.8",
+            "Description": "Platform version is used to retrieve Lambda functions from the correct S3 directory. Enter the name of the release version, such as release-1.8"
+        },
+        "pDXCS3BucketName": {
+            "AllowedPattern": "^[0-9a-zA-Z]+([0-9a-zA-Z-.]*[0-9a-zA-Z])*$",
+            "ConstraintDescription": "DXC Managed Services bucket name can include numbers, lowercase letters, uppercase letters, periods (.), and hyphens (-). It cannot start or end with a hyphen (-).",
+            "Default": "dxc.ss.digitalnow-us-east-1",
+            "Description": "S3 bucket name for the DXC Managed Service assets. DXC MS bucket name can include numbers, lowercase letters, uppercase letters, and hyphens (-). It cannot start or end with a hyphen (-).",
+            "Type": "String"
+        },
+        "pDXCS3KeyPrefix": {
+            "AllowedPattern": "^[0-9a-zA-Z-]+(/[0-9a-zA-Z-]+)*$",
+            "ConstraintDescription": "DXC Managed Services key path can include numbers, lowercase letters, uppercase letters, hyphens (-), and forward slash (/). It cannot start or end with forward slash (/) because they are automatically appended.",
+            "Default": "deploy",
+            "Description": "S3 path to the DXC MS assets. The DXC MS path can include numbers, lowercase letters, uppercase letters, hyphens (-), and forward slash (/). It cannot start or end with forward slash (/) because they are automatically appended.",
+            "Type": "String"
+        }, 
+		"VPCCIDR": {
+            "Type": "String",
+            "Description": "IP Address range for the Workload VPC",
+            "MinLength": "9",
+            "MaxLength": "18",
+            "Default": "10.180.108.0/25",
+            "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
+            "ConstraintDescription": "must be a valid IP CIDR range of the form x.x.x.x/x."
+        },
+        "VPCName": {
+            "Type": "String",
+            "Description": "VPC Name Tag",
+            "Default": "DXC-DN-US-EAST1-VPC-SS"
+        },
+        "PublicSubnetNameA": {
+            "Type": "String",
+            "Description": "Subnet Name Tag",
+            "Default": "DXC-DN-US-EAST1-SS-PUB-AZ-a"
+        },
+        "PublicSubnetNameB": {
+            "Type": "String",
+            "Description": "Subnet Name Tag",
+            "Default": "DXC-DN-US-EAST1-SS-PUB-AZ-b"
+        },
+        "PrivateSubnetNameA": {
+            "Type": "String",
+            "Description": "Subnet Name Tag",
+            "Default": "DXC-DN-US-EAST1-SS-PRI-AZ-a"
+        },
+        "PrivateSubnetNameB": {
+            "Type": "String",
+            "Description": "Subnet Name Tag",
+            "Default": "DXC-DN-US-EAST1-SS-PRI-AZ-b"
+        },
+        "PublicSubnetCIDRA": {
+            "Type": "String",
+            "Description": "IP Address range for the Public Subnet A",
+            "MinLength": "9",
+            "MaxLength": "18",
+            "Default": "10.180.108.64/27",
+            "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
+            "ConstraintDescription": "must be a valid IP CIDR range of the form x.x.x.x/x."
+        },
+        "PublicSubnetCIDRB": {
+            "Type": "String",
+            "Description": "IP Address range for the Public Subnet A",
+            "MinLength": "9",
+            "MaxLength": "18",
+            "Default": "10.180.108.96/27",
+            "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
+            "ConstraintDescription": "must be a valid IP CIDR range of the form x.x.x.x/x."
+        },
+        "PrivateSubnetCIDRA": {
+            "Type": "String",
+            "Description": "IP Address range for the Private Subnet A",
+            "MinLength": "9",
+            "MaxLength": "18",
+            "Default": "10.180.108.0/27",
+            "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
+            "ConstraintDescription": "must be a valid IP CIDR range of the form x.x.x.x/x."
+        },
+        "PrivateSubnetCIDRB": {
+            "Type": "String",
+            "Description": "IP Address range for the Private Subnet B",
+            "MinLength": "9",
+            "MaxLength": "18",
+            "Default": "10.180.108.32/27",
+            "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
+            "ConstraintDescription": "must be a valid IP CIDR range of the form x.x.x.x/x."
+        },
+        "PublicRouteTableName": {
+            "Type": "String",
+            "Description": "Route table name Public",
+            "Default": "DXC-DN-US-EAST1-SS-RT-PUB"
+        },
+		"PvtRouteTableName": {
+            "Type": "String",
+            "Description": "Route table name Private",
+            "Default": "DXC-DN-US-EAST1-SS-RT-PRI"
+        },
+        "pApplyPatching": {
+            "Description": "Apply Patching on Instances",
+            "Type": "String",
+            "Default": false,
+            "AllowedValues": [
+                true,
+                false
+            ]
+        },
+        "pPatchGroupWindows2012R2": {
+            "Description": "Patch Group for Windows 2012 R2 Instances",
+            "Type": "String"
+        },
+        "pPatchGroupWindows2016": {
+            "Description": "Patch Group for Windows 2016 Instances",
+            "Type": "String"
+        },
+        "pPatchGroupRHEL6": {
+            "Description": "Patch Group for Redhat Linux 6 Instances",
+            "Type": "String"
+        },
+        "pPatchGroupRHEL7": {
+            "Description": "Patch Group for Redhat Linux 7 Instances",
+            "Type": "String"
+        },
+        "pPatchGroupAmazonLinux": {
+            "Description": "Patch Group for Amazon Linux Instances",
+            "Type": "String"
+        },
+        "pPatchGroupSLESSP3": {
+            "Description": "Patch Group for SUSE 12 SP3 Instances",
+            "Type": "String"
+        },
+        "pPatchGroupSLESSP3SAP": {
+            "Description": "Patch Group for SUSE 12 SP3 SAP Instances",
+            "Type": "String"
+        },
+        "pApplyBackup": {
+            "Description": "Apply Patching on Instances",
+            "Type": "String",
+            "Default": false,
+            "AllowedValues": [
+                true,
+                false
+            ]
+        },
+        "pCustomBackupSchedule": {
+            "Description": "Cron to Indicate Custom Backup Schedule if Applicable",
+            "Type": "String"
+        },
+        "pBackupRetentionPeriod": {
+            "Description": "Length of Time to Retain Instance Backups (only applied if ApplyBackup is true)",
+            "Type": "Number",
+            "Default": 30,
+            "AllowedValues": [
+                30,
+                60,
+                90
+            ]
+        },
+        "pApplyEndpointProtection": {
+            "Description": "CloudStrike Agent applied to Instances",
+            "Type": "String",
+            "Default": false,
+            "AllowedValues": [
+                true,
+                false
+            ]
+        },
+        "pApplyMonitoring": {
+            "Description": "Apply Monitoring on Instances",
+            "Type": "String",
+            "Default": false,
+            "AllowedValues": [
+                true,
+                false
+            ]
+        },
+        "pApplyLogging": {
+            "Description": "Apply Logging on Instances",
+            "Type": "String",
+            "Default": false,
+            "AllowedValues": [
+                true,
+                false
+            ]
+        }
+    },
+    "Metadata": {
+        "AWS::CloudFormation::Interface": {
+            "ParameterGroups": [
+                {
+                    "Label": {
+                        "default": "Platform Version:"
+                    },
+                    "Parameters": [
+                        "pPlatformVersion"
+                    ]
+                },
+                {
+                    "Label": {
+                        "default": "Location of DXC Managed Services Assets:"
+                    },
+                    "Parameters": [
+                        "pDXCS3BucketName",
+                        "pDXCS3KeyPrefix"
+                    ]
+                },
+                {
+                    "Label": {
+                        "default": "Workload VPC:"
+                    },
+                    "Parameters": [
+                        "VPCName",
+                        "VPCCIDR"
+                    ]
+                },
+                {
+                    "Label": {
+                        "default": "Availability Zone A Subnets:"
+                    },
+                    "Parameters": [
+                        "PublicSubnetNameA",
+                        "PublicSubnetCIDRA",
+                        "PrivateSubnetNameA",
+                        "PrivateSubnetCIDRA"
+                    ]
+                },
+                {
+                    "Label": {
+                        "default": "Availability Zone B Subnets:"
+                    },
+                    "Parameters": [
+                        "PublicSubnetNameB",
+                        "PublicSubnetCIDRB",
+                        "PrivateSubnetNameB",
+                        "PrivateSubnetCIDRB"
+                    ]
+                },
+                {
+                    "Label": {
+                        "default": "Instances Service Options:"
+                    },
+                    "Parameters": [
+                        "pApplyPatching",
+                        "pPatchGroupWindows2012R2",
+                        "pPatchGroupWindows2016",
+                        "pPatchGroupRHEL6",
+                        "pPatchGroupRHEL7",
+                        "pPatchGroupAmazonLinux",
+                        "pPatchGroupSLESSP3",
+                        "pPatchGroupSLESSP3SAP",
+                        "pApplyBackup",
+                        "pCustomBackupSchedule",
+                        "pBackupRetentionPeriod",
+                        "pApplyEndpointProtection",
+                        "pApplyMonitoring",
+                        "pApplyLogging"
+                    ]
+                }
+            ],
+            "ParameterLabels": {
+                "pPlatformVersion": {
+                    "default": "Platform Version:"
+                },
+                "pDXCS3BucketName": {
+                    "default": "S3 Bucket Name:"
+                },
+                "pDXCS3KeyPrefix": {
+                    "default": "Asset Path:"
+                },
+                "VPCCIDR": {
+                    "default": "CIDR:"
+                },
+                "VPCName": {
+                    "default": "Name:"
+                },
+                "PublicSubnetNameA": {
+                    "default": "Public Subnet Name:"
+                },
+                "PublicSubnetCIDRA": {
+                    "default": "Public Subnet CIDR:"
+                },
+                "PublicSubnetNameB": {
+                    "default": "Public Subnet Name:"
+                },
+                "PublicSubnetCIDRB": {
+                    "default": "Public Subnet CIDR:"
+                },
+                "PrivateSubnetNameA": {
+                    "default": "Private Subnet Name:"
+                },
+                "PrivateSubnetCIDRA": {
+                    "default": "Private Subnet Name:"
+                },
+                "PrivateSubnetNameB": {
+                    "default": "Private Subnet Name:"
+                },
+                "PrivateSubnetCIDRB": {
+                    "default": "Private Subnet Name:"
+                },
+                "pApplyPatching": {
+                    "default": "Apply Patching:"
+                },
+                "pPatchGroupWindows2012R2": {
+                    "default": "Patch Group for Windows 2012 R2 Instances:"
+                },
+                "pPatchGroupWindows2016": {
+                    "default": "Patch Group for Windows 2016 Instances:"
+                },
+                "pPatchGroupRHEL6": {
+                    "default": "Patch Group for Redhat Linux 6 Instances:"
+                },
+                "pPatchGroupRHEL7": {
+                    "default": "[Optional] Patch Group for Redhat Linux 7 Instances.  Only applies if ApplyPatching is true."
+                },
+                "pPatchGroupAmazonLinux": {
+                    "default": "[Optional] Patch Group for Amazon Linux Instances.  Only applies if ApplyPatching is true."
+                },
+                "pPatchGroupSLESSP3": {
+                    "default": "[Optional] Patch Group for SLES 12 SP3 Instances.  Only applies if ApplyPatching is true."
+                },
+                "pPatchGroupSLESSP3SAP": {
+                    "default": "[Optional] Patch Group for SLES 12 SP3 SAP Instances.  Only applies if ApplyPatching is true."
+                },
+                "pApplyBackup": {
+                    "default": "Apply Backup:"
+                },
+                "pCustomBackupSchedule": {
+                    "default": "Custom Backup Schedule:"
+                },
+                "pBackupRetentionPeriod": {
+                    "default": "Backup Retention Period:"
+                },
+                "pApplyEndpointProtection": {
+                    "default": "Apply Endpoint Protection:"
+                },
+                "pApplyMonitoring": {
+                    "default": "Apply Monitoring:"
+                },
+                "pApplyLogging": {
+                    "default": "Apply Logging:"
+                }
+            }
+        }
+    },
+    "Mappings": {
+        "AWSInfoRegionMap": {
+            "ap-northeast-1": {
+                "Partition": "aws",
+                "AWSURL": "https://s3.amazonaws.com"
+            },
+            "ap-northeast-2": {
+                "Partition": "aws",
+                "AWSURL": "https://s3.amazonaws.com"
+            },
+            "ap-south-1": {
+                "Partition": "aws",
+                "AWSURL": "https://s3.amazonaws.com"
+            },
+            "ap-southeast-1": {
+                "Partition": "aws",
+                "AWSURL": "https://s3.amazonaws.com"
+            },
+            "ap-southeast-2": {
+                "Partition": "aws",
+                "AWSURL": "https://s3.amazonaws.com"
+            },
+            "ca-central-1": {
+                "Partition": "aws",
+                "AWSURL": "https://s3.amazonaws.com"
+            },
+            "eu-central-1": {
+                "Partition": "aws",
+                "AWSURL": "https://s3.amazonaws.com"
+            },
+            "eu-west-1": {
+                "Partition": "aws",
+                "AWSURL": "https://s3.amazonaws.com"
+            },
+            "eu-west-2": {
+                "Partition": "aws",
+                "AWSURL": "https://s3.amazonaws.com"
+            },
+            "sa-east-1": {
+                "Partition": "aws",
+                "AWSURL": "https://s3.amazonaws.com"
+            },
+            "us-east-1": {
+                "Partition": "aws",
+                "AWSURL": "https://s3.amazonaws.com"
+            },
+            "us-east-2": {
+                "Partition": "aws",
+                "AWSURL": "https://s3.amazonaws.com"
+            },
+            "us-gov-west-1": {
+                "Partition": "aws-us-gov",
+                "AWSURL": "https://s3-us-gov-west-1.amazonaws.com"
+            },
+            "us-west-1": {
+                "Partition": "aws",
+                "AWSURL": "https://s3.amazonaws.com"
+            },
+            "us-west-2": {
+                "Partition": "aws",
+                "AWSURL": "https://s3.amazonaws.com"
+            }
+        }
+    },
+    "Resources": {
+        "VPC": {
+            "Type": "AWS::EC2::VPC",
+            "Properties": {
+                "EnableDnsSupport": "true",
+                "EnableDnsHostnames": "true",
+                "CidrBlock": {
+                    "Ref": "VPCCIDR"
+                },
+                "Tags": [
+                    {
+                        "Key": "Application",
+                        "Value": {
+                            "Ref": "AWS::StackName"
+                        }
+                    },
+                    {
+                        "Key": "Name",
+                        "Value": {
+                            "Ref": "VPCName"
+                        }
+                    },
+                    {
+                        "Key": "Stack Version",
+                        "Value": "Mar-2020"
+                    }
+                ]
+            }
+        },
+		"InternetGateway": {
+            "Type": "AWS::EC2::InternetGateway",
+            "Properties": {
+                "Tags": [
+                    {
+                        "Key": "Application",
+                        "Value": {
+                            "Ref": "AWS::StackName"
+                        }
+                    },
+                    {
+                        "Key": "Network",
+                        "Value": "Public"
+                    },
+                    {
+                        "Key": "Name",
+                        "Value": "DXC-DN-US-EAST1-IGW-SS"
+                    }
+                ]
+            }
+        },
+        "GatewayToInternet": {
+            "Type": "AWS::EC2::VPCGatewayAttachment",
+            "DependsOn": [
+                "VPC",
+                "InternetGateway"
+            ],
+            "Properties": {
+                "VpcId": {
+                    "Ref": "VPC"
+                },
+                "InternetGatewayId": {
+                    "Ref": "InternetGateway"
+                }
+            }
+        },
+		"ElasticIPForNATA": {
+            "Type": "AWS::EC2::EIP",
+            "DependsOn": [
+                "VPC"
+            ],
+            "Properties": {
+                "Domain": {
+                    "Ref": "VPC"
+                },
+                "Tags": [
+
+                    {
+                        "Key": "Name",
+                        "Value": "DXC-DN-US-EAST1-EIP-SS"
+                    }
+                ]
+
+            }
+        },
+        "NATGatewayA": {
+            "Type": "AWS::EC2::NatGateway",
+            "DependsOn": [
+                "ElasticIPForNATA",
+                "PublicSubnetA"
+            ],
+            "Properties": {
+                "AllocationId": {
+                    "Fn::GetAtt": [
+                        "ElasticIPForNATA",
+                        "AllocationId"
+                    ]
+                },
+                "SubnetId": {
+                    "Ref": "PublicSubnetA"
+                },
+                "Tags": [
+
+                    {
+                        "Key": "Name",
+                        "Value": "DXC-DN-US-EAST1-NAT-SS"
+                    }
+                ]
+
+
+            }
+        },
+        "PublicRouteTableAll": {
+            "Type": "AWS::EC2::RouteTable",
+            "DependsOn": [
+                "VPC"
+            ],
+            "Properties": {
+                "VpcId": {
+                    "Ref": "VPC"
+                },
+                "Tags": [
+                    {
+                        "Key": "Application",
+                        "Value": {
+                            "Ref": "AWS::StackName"
+                        }
+                    },
+                    {
+                        "Key": "Network",
+                        "Value": "Public Route Table"
+                    },
+                    {
+                        "Key": "RouteTableType",
+                        "Value": "Public"
+                    },
+                    {
+                        "Key": "Name",
+                        "Value": "DXC-DN-US-EAST1-SS-RT-PUB"
+                    }
+                ]
+            }
+        },
+		"PublicRouteA": {
+            "Type": "AWS::EC2::Route",
+            "DependsOn": "GatewayToInternet",
+            "Properties": {
+                "RouteTableId": {
+                    "Ref": "PublicRouteTableAll"
+                },
+                "DestinationCidrBlock": "0.0.0.0/0",
+                "GatewayId": {
+                    "Ref": "InternetGateway"
+                }
+            }
+        },
+        "PublicSubnetA": {
+            "Type": "AWS::EC2::Subnet",
+            "DependsOn": [
+                "VPC"
+            ],
+            "Properties": {
+                "VpcId": {
+                    "Ref": "VPC"
+                },
+                "CidrBlock": {
+                    "Ref": "PublicSubnetCIDRA"
+                },
+                "MapPublicIpOnLaunch": true,
+                "AvailabilityZone": {
+                    "Fn::Select": [
+                        "0",
+                        {
+                            "Fn::GetAZs": ""
+                        }
+                    ]
+                },
+                "Tags": [
+                    {
+                        "Key": "Application",
+                        "Value": {
+                            "Ref": "AWS::StackName"
+                        }
+                    },
+                    {
+                        "Key": "Network",
+                        "Value": "Public Subnet"
+                    },
+                    {
+                        "Key": "Name",
+                        "Value": {
+                            "Ref": "PublicSubnetNameA"
+                        }
+                    },
+                    {
+                        "Key": "SubnetType",
+                        "Value": "Public"
+                    },
+                    {
+                        "Key": "ApplyPatching",
+                        "Value": {
+                            "Ref": "pApplyPatching"
+                        }
+                    },
+                    {
+                        "Key": "PatchGroupWindows2012R2",
+                        "Value": {
+                            "Ref": "pPatchGroupWindows2012R2"
+                        }
+                    },
+                    {
+                        "Key": "PatchGroupWindows2016",
+                        "Value": {
+                            "Ref": "pPatchGroupWindows2016"
+                        }
+                    },
+                    {
+                        "Key": "PatchGroupRHEL6",
+                        "Value": {
+                            "Ref": "pPatchGroupRHEL6"
+                        }
+                    },
+                    {
+                        "Key": "PatchGroupRHEL7",
+                        "Value": {
+                            "Ref": "pPatchGroupRHEL7"
+                        }
+                    },
+                    {
+                        "Key": "PatchGroupAmazonLinux",
+                        "Value": {
+                            "Ref": "pPatchGroupAmazonLinux"
+                        }
+                    },
+                    {
+                        "Key": "PatchGroupSLESSP3",
+                        "Value": {
+                            "Ref": "pPatchGroupSLESSP3"
+                        }
+                    },
+                    {
+                        "Key": "PatchGroupSLESSP3SAP",
+                        "Value": {
+                            "Ref": "pPatchGroupSLESSP3SAP"
+                        }
+                    },
+                    {
+                        "Key": "ApplyBackup",
+                        "Value": {
+                            "Ref": "pApplyBackup"
+                        }
+                    },
+                    {
+                        "Key": "CustomBackupSchedule",
+                        "Value": {
+                            "Ref": "pCustomBackupSchedule"
+                        }
+                    },
+                    {
+                        "Key": "BackupRetentionPeriod",
+                        "Value": {
+                            "Ref": "pBackupRetentionPeriod"
+                        }
+                    },
+                    {
+                        "Key": "ApplyEndpointProtection",
+                        "Value": {
+                            "Ref": "pApplyEndpointProtection"
+                        }
+                    },
+                    {
+                        "Key": "ApplyMonitoring",
+                        "Value": {
+                            "Ref": "pApplyMonitoring"
+                        }
+                    },
+                    {
+                        "Key": "ApplyLogging",
+                        "Value": {
+                            "Ref": "pApplyLogging"
+                        }
+                    }
+                ]
+            }
+        },
+        "PublicSubnetRouteTableAssociationA": {
+            "Type": "AWS::EC2::SubnetRouteTableAssociation",
+            "DependsOn": [
+                "PublicSubnetA",
+                "PublicRouteTableAll"
+            ],
+            "Properties": {
+                "SubnetId": {
+                    "Ref": "PublicSubnetA"
+                },
+                "RouteTableId": {
+                    "Ref": "PublicRouteTableAll"
+                }
+            }
+        },
+        "PublicSubnetB": {
+            "Type": "AWS::EC2::Subnet",
+            "DependsOn": [
+                "VPC"
+            ],
+            "Properties": {
+                "VpcId": {
+                    "Ref": "VPC"
+                },
+                "CidrBlock": {
+                    "Ref": "PublicSubnetCIDRB"
+                },
+                "MapPublicIpOnLaunch": true,
+                "AvailabilityZone": {
+                    "Fn::Select": [
+                        "1",
+                        {
+                            "Fn::GetAZs": ""
+                        }
+                    ]
+                },
+                "Tags": [
+                    {
+                        "Key": "Application",
+                        "Value": {
+                            "Ref": "AWS::StackName"
+                        }
+                    },
+                    {
+                        "Key": "Network",
+                        "Value": "Public Subnet"
+                    },
+                    {
+                        "Key": "Name",
+                        "Value": {
+                            "Ref": "PublicSubnetNameB"
+                        }
+                    },
+                    {
+                        "Key": "SubnetType",
+                        "Value": "Public"
+                    },
+                    {
+                        "Key": "ApplyPatching",
+                        "Value": {
+                            "Ref": "pApplyPatching"
+                        }
+                    },
+                    {
+                        "Key": "PatchGroupWindows2012R2",
+                        "Value": {
+                            "Ref": "pPatchGroupWindows2012R2"
+                        }
+                    },
+                    {
+                        "Key": "PatchGroupWindows2016",
+                        "Value": {
+                            "Ref": "pPatchGroupWindows2016"
+                        }
+                    },
+                    {
+                        "Key": "PatchGroupRHEL6",
+                        "Value": {
+                            "Ref": "pPatchGroupRHEL6"
+                        }
+                    },
+                    {
+                        "Key": "PatchGroupRHEL7",
+                        "Value": {
+                            "Ref": "pPatchGroupRHEL7"
+                        }
+                    },
+                    {
+                        "Key": "PatchGroupAmazonLinux",
+                        "Value": {
+                            "Ref": "pPatchGroupAmazonLinux"
+                        }
+                    },
+                    {
+                        "Key": "PatchGroupSLESSP3",
+                        "Value": {
+                            "Ref": "pPatchGroupSLESSP3"
+                        }
+                    },
+                    {
+                        "Key": "PatchGroupSLESSP3SAP",
+                        "Value": {
+                            "Ref": "pPatchGroupSLESSP3SAP"
+                        }
+                    },
+                    {
+                        "Key": "ApplyBackup",
+                        "Value": {
+                            "Ref": "pApplyBackup"
+                        }
+                    },
+                    {
+                        "Key": "CustomBackupSchedule",
+                        "Value": {
+                            "Ref": "pCustomBackupSchedule"
+                        }
+                    },
+                    {
+                        "Key": "BackupRetentionPeriod",
+                        "Value": {
+                            "Ref": "pBackupRetentionPeriod"
+                        }
+                    },
+                    {
+                        "Key": "ApplyEndpointProtection",
+                        "Value": {
+                            "Ref": "pApplyEndpointProtection"
+                        }
+                    },
+                    {
+                        "Key": "ApplyMonitoring",
+                        "Value": {
+                            "Ref": "pApplyMonitoring"
+                        }
+                    },
+                    {
+                        "Key": "ApplyLogging",
+                        "Value": {
+                            "Ref": "pApplyLogging"
+                        }
+                    }
+                ]
+            }
+        },
+        "PublicSubnetRouteTableAssociationB": {
+            "Type": "AWS::EC2::SubnetRouteTableAssociation",
+            "DependsOn": [
+                "PublicSubnetB",
+                "PublicRouteTableAll"
+            ],
+            "Properties": {
+                "SubnetId": {
+                    "Ref": "PublicSubnetB"
+                },
+                "RouteTableId": {
+                    "Ref": "PublicRouteTableAll" 
+                }
+            }
+        },
+        "PvtRouteTable": {
+            "Type": "AWS::EC2::RouteTable",
+            "DependsOn": [
+                "VPC"
+            ],
+            "Properties": {
+                "VpcId": {
+                    "Ref": "VPC"
+                },
+                "Tags": [
+                    {
+                        "Key": "Application",
+                        "Value": {
+                            "Ref": "AWS::StackName"
+                        }
+                    },
+                    {
+                        "Key": "Network",
+                        "Value": "Private Route Table"
+                    },
+                    {
+                        "Key": "RouteTableType",
+                        "Value": "Private"
+                    },
+                    {
+                        "Key": "Name",
+                        "Value": "DXC-DN-US-EAST1-SS-RT-PRI"
+                    }
+                ]
+            }
+        },
+		"PvtRoute": {
+            "Type": "AWS::EC2::Route",
+            "Properties": {
+                "RouteTableId": {
+                    "Ref": "PvtRouteTable"
+                },
+                "DestinationCidrBlock": "0.0.0.0/0",
+                "NatGatewayId": {
+                    "Ref": "NATGatewayA"
+                }
+            }
+        },
+		"PrivateSubnetA": {
+            "Type": "AWS::EC2::Subnet",
+            "DependsOn": [
+                "VPC"
+            ],
+            "Properties": {
+                "VpcId": {
+                    "Ref": "VPC"
+                },
+                "AvailabilityZone": {
+                    "Fn::Select": [
+                        "0",
+                        {
+                            "Fn::GetAZs": ""
+                        }
+                    ]
+                },
+                "CidrBlock": {
+                    "Ref": "PrivateSubnetCIDRA"
+                },
+                "Tags": [
+                    {
+                        "Key": "Application",
+                        "Value": {
+                            "Ref": "AWS::StackName"
+                        }
+                    },
+                    {
+                        "Key": "Network",
+                        "Value": "Private Subnet A"
+                    },
+                    {
+                        "Key": "Name",
+                        "Value": {
+                            "Ref": "PrivateSubnetNameA"
+                        }
+                    },
+                    {
+                        "Key": "SubnetType",
+                        "Value": "Private"
+                    },
+                    {
+                        "Key": "ApplyPatching",
+                        "Value": {
+                            "Ref": "pApplyPatching"
+                        }
+                    },
+                    {
+                        "Key": "PatchGroupWindows2012R2",
+                        "Value": {
+                            "Ref": "pPatchGroupWindows2012R2"
+                        }
+                    },
+                    {
+                        "Key": "PatchGroupWindows2016",
+                        "Value": {
+                            "Ref": "pPatchGroupWindows2016"
+                        }
+                    },
+                    {
+                        "Key": "PatchGroupRHEL6",
+                        "Value": {
+                            "Ref": "pPatchGroupRHEL6"
+                        }
+                    },
+                    {
+                        "Key": "PatchGroupRHEL7",
+                        "Value": {
+                            "Ref": "pPatchGroupRHEL7"
+                        }
+                    },
+                    {
+                        "Key": "PatchGroupAmazonLinux",
+                        "Value": {
+                            "Ref": "pPatchGroupAmazonLinux"
+                        }
+                    },
+                    {
+                        "Key": "PatchGroupSLESSP3",
+                        "Value": {
+                            "Ref": "pPatchGroupSLESSP3"
+                        }
+                    },
+                    {
+                        "Key": "PatchGroupSLESSP3SAP",
+                        "Value": {
+                            "Ref": "pPatchGroupSLESSP3SAP"
+                        }
+                    },
+                    {
+                        "Key": "ApplyBackup",
+                        "Value": {
+                            "Ref": "pApplyBackup"
+                        }
+                    },
+                    {
+                        "Key": "CustomBackupSchedule",
+                        "Value": {
+                            "Ref": "pCustomBackupSchedule"
+                        }
+                    },
+                    {
+                        "Key": "BackupRetentionPeriod",
+                        "Value": {
+                            "Ref": "pBackupRetentionPeriod"
+                        }
+                    },
+                    {
+                        "Key": "ApplyEndpointProtection",
+                        "Value": {
+                            "Ref": "pApplyEndpointProtection"
+                        }
+                    },
+                    {
+                        "Key": "ApplyMonitoring",
+                        "Value": {
+                            "Ref": "pApplyMonitoring"
+                        }
+                    },
+                    {
+                        "Key": "ApplyLogging",
+                        "Value": {
+                            "Ref": "pApplyLogging"
+                        }
+                    }
+                ]
+            }
+        },
+        "PrivateSubnetRouteTableAssociationA": {
+            "Type": "AWS::EC2::SubnetRouteTableAssociation",
+            "DependsOn": [
+                "PrivateSubnetA",
+                "PvtRouteTable"
+            ],
+            "Properties": {
+                "SubnetId": {
+                    "Ref": "PrivateSubnetA"
+                },
+                "RouteTableId": {
+                    "Ref": "PvtRouteTable"
+                }
+            }
+        },
+        "PrivateSubnetB": {
+            "Type": "AWS::EC2::Subnet",
+            "DependsOn": [
+                "VPC"
+            ],
+            "Properties": {
+                "VpcId": {
+                    "Ref": "VPC"
+                },
+                "AvailabilityZone": {
+                    "Fn::Select": [
+                        "1",
+                        {
+                            "Fn::GetAZs": ""
+                        }
+                    ]
+                },
+                "CidrBlock": {
+                    "Ref": "PrivateSubnetCIDRB"
+                },
+                "Tags": [
+                    {
+                        "Key": "Application",
+                        "Value": {
+                            "Ref": "AWS::StackName"
+                        }
+                    },
+                    {
+                        "Key": "Network",
+                        "Value": "Private Subnet B"
+                    },
+                    {
+                        "Key": "Name",
+                        "Value": {
+                            "Ref": "PrivateSubnetNameB"
+                        }
+                    },
+                    {
+                        "Key": "SubnetType",
+                        "Value": "Private"
+                    },
+                    {
+                        "Key": "ApplyPatching",
+                        "Value": {
+                            "Ref": "pApplyPatching"
+                        }
+                    },
+                    {
+                        "Key": "PatchGroupWindows2012R2",
+                        "Value": {
+                            "Ref": "pPatchGroupWindows2012R2"
+                        }
+                    },
+                    {
+                        "Key": "PatchGroupWindows2016",
+                        "Value": {
+                            "Ref": "pPatchGroupWindows2016"
+                        }
+                    },
+                    {
+                        "Key": "PatchGroupRHEL6",
+                        "Value": {
+                            "Ref": "pPatchGroupRHEL6"
+                        }
+                    },
+                    {
+                        "Key": "PatchGroupRHEL7",
+                        "Value": {
+                            "Ref": "pPatchGroupRHEL7"
+                        }
+                    },
+                    {
+                        "Key": "PatchGroupAmazonLinux",
+                        "Value": {
+                            "Ref": "pPatchGroupAmazonLinux"
+                        }
+                    },
+                    {
+                        "Key": "PatchGroupSLESSP3",
+                        "Value": {
+                            "Ref": "pPatchGroupSLESSP3"
+                        }
+                    },
+                    {
+                        "Key": "PatchGroupSLESSP3SAP",
+                        "Value": {
+                            "Ref": "pPatchGroupSLESSP3SAP"
+                        }
+                    },
+                    {
+                        "Key": "ApplyBackup",
+                        "Value": {
+                            "Ref": "pApplyBackup"
+                        }
+                    },
+                    {
+                        "Key": "CustomBackupSchedule",
+                        "Value": {
+                            "Ref": "pCustomBackupSchedule"
+                        }
+                    },
+                    {
+                        "Key": "BackupRetentionPeriod",
+                        "Value": {
+                            "Ref": "pBackupRetentionPeriod"
+                        }
+                    },
+                    {
+                        "Key": "ApplyEndpointProtection",
+                        "Value": {
+                            "Ref": "pApplyEndpointProtection"
+                        }
+                    },
+                    {
+                        "Key": "ApplyMonitoring",
+                        "Value": {
+                            "Ref": "pApplyMonitoring"
+                        }
+                    },
+                    {
+                        "Key": "ApplyLogging",
+                        "Value": {
+                            "Ref": "pApplyLogging"
+                        }
+                    }
+                ]
+            }
+        },
+        "PrivateSubnetRouteTableAssociationB": {
+            "Type": "AWS::EC2::SubnetRouteTableAssociation",
+            "DependsOn": [
+                "PrivateSubnetB",
+                "PvtRouteTable"
+            ],
+            "Properties": {
+                "SubnetId": {
+                    "Ref": "PrivateSubnetB"
+                },
+                "RouteTableId": {
+                    "Ref": "PvtRouteTable"
+					}
+				}
+		}
+	},	
+    "Outputs": {
+        "CustomerVPCId": {
+            "Description": "VPCId of the newly created DXC-DN-VPC-SS",
+            "Value": {
+                "Ref": "VPC"
+            }
+        },
+        "CustomerCIDR": {
+            "Description": "Management VPC CIDR",
+            "Value": {
+                "Ref": "VPCCIDR"
+            }
+        },
+        "CustomerNATAElasticIP": {
+            "Description": "The Elastic IP of the NAT on Subnet A",
+            "Value": {
+                "Ref": "ElasticIPForNATA"
+            }
+        },
+        "AZs": {
+            "Description": "AZs",
+            "Value": 6
+        },
+        "AZPubA": {
+            "Description": "AZ of Public Subnet A",
+            "Value": {
+                "Fn::Select": [
+                    0,
+                    {
+                        "Fn::GetAZs": ""
+                    }
+                ]
+            }
+        },
+        "AZA": {
+            "Description": "AZ of A",
+            "Value": {
+                "Fn::Select": [
+                    0,
+                    {
+                        "Fn::GetAZs": ""
+                    }
+                ]
+            }
+        },
+        "AZB": {
+            "Description": "AZ of B",
+            "Value": {
+                "Fn::Select": [
+                    1,
+                    {
+                        "Fn::GetAZs": ""
+                    }
+                ]
+            }
+        },
+        "AZPubB": {
+            "Description": "AZ of Public Subnet B",
+            "Value": {
+                "Fn::Select": [
+                    1,
+                    {
+                        "Fn::GetAZs": ""
+                    }
+                ]
+            }
+        }
+
+    }
+}
