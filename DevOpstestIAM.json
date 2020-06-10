@@ -1,0 +1,185 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "Creates IAM Users & Groups in AWS SS environment for DigitalNow project",
+    "Parameters":{
+		"GroupName" : {
+			"Type": "String",
+            "Description": "Name of the Group to be created in IAM",
+            "Default": "DXC-DN-App-Team"
+        },
+		"PasswordUser1": {
+            "NoEcho": "true",
+            "Type": "String",
+            "Description": "New account password for User1",
+            "MinLength": "1",
+            "MaxLength": "41",
+			"Default": "DXCPass@12345",
+            "ConstraintDescription": "the password must be between 1 and 41 characters"
+        },
+		"PasswordUser2": {
+            "NoEcho": "true",
+            "Type": "String",
+            "Description": "New account password for User2",
+            "MinLength": "1",
+            "MaxLength": "41",
+			"Default": "DXCPass@12345",
+            "ConstraintDescription": "the password must be between 1 and 41 characters"
+        },
+		"PasswordUser3": {
+            "NoEcho": "true",
+            "Type": "String",
+            "Description": "New account password for User3",
+            "MinLength": "1",
+            "MaxLength": "41",
+			"Default": "DXCPass@12345",
+            "ConstraintDescription": "the password must be between 1 and 41 characters"
+        },
+		"PasswordUser4": {
+            "NoEcho": "true",
+            "Type": "String",
+            "Description": "New account password for User4",
+            "MinLength": "1",
+            "MaxLength": "41",
+			"Default": "DXCPass@12345",
+            "ConstraintDescription": "the password must be between 1 and 41 characters"
+        },
+		"PasswordUser5": {
+            "NoEcho": "true",
+            "Type": "String",
+            "Description": "New account password for User5",
+            "MinLength": "1",
+            "MaxLength": "41",
+			"Default": "DXCPass@12345",
+            "ConstraintDescription": "the password must be between 1 and 41 characters"
+        }
+	},
+	"Resources" : {
+		"AppTeamGroup" : {
+			"Type" : "AWS::IAM::Group",
+			"Properties" : {
+				"GroupName" : {"Ref":"GroupName"},
+				"ManagedPolicyArns": [
+                    "arn:aws:iam::aws:policy/ReadOnlyAccess",
+					"arn:aws:iam::aws:policy/IAMUserChangePassword"
+                ],
+                "Path": "/",
+				"Policies" : [
+					{
+						"PolicyDocument" : {
+							"Version": "2012-10-17",
+							"Statement": [
+								{
+									"Effect": "Allow",
+									"Action": "sts:AssumeRole",
+									"Resource": "arn:aws:iam::720049305726:role/DigitalNow_Stage"
+								},
+								{
+									"Effect": "Allow",
+									"Action": "sts:AssumeRole",
+									"Resource": "arn:aws:iam::553618993189:role/DigitalNow_Prod"
+								}
+							]
+						},
+						"PolicyName" : "CrossAccountPolicySS"
+					}
+				]
+			}
+		},
+		"IAMUser1" : {
+			"Type" : "AWS::IAM::User",
+			"Properties" : {
+				"Groups" : [{ "Ref" : "AppTeamGroup"}],
+				"LoginProfile": {
+                    "Password": {
+                        "Ref": "PasswordUser1"
+                    },
+					"PasswordResetRequired" : "true"
+                },
+				"Tags": [
+						{"Key": "Application",	"Value": {"Ref": "AWS::StackName"}},
+						{"Key": "Project",		"Value": "DigitalNow"},
+						{"Key": "Name",			"Value": "KrBruce"},
+						{"Key": "Environment",	"Value": "DXC-DN-SS"}
+                ],
+				"UserName" : "bkr2@dxc.com"
+			}
+		},
+		"IAMUser2" : {
+			"Type" : "AWS::IAM::User",
+			"Properties" : {
+				"Groups" : [{ "Ref" : "AppTeamGroup"}],
+				"LoginProfile": {
+                    "Password": {
+                        "Ref": "PasswordUser2"
+                    },
+					"PasswordResetRequired" : "true"
+                },
+				"Tags": [
+						{"Key": "Application",	"Value": {"Ref": "AWS::StackName"}},
+						{"Key": "Project",		"Value": "DigitalNow"},
+						{"Key": "Name",			"Value": "ChaluvarajPoornesh"},
+						{"Key": "Environment",	"Value": "DXC-DN-SS"}
+                ],
+				"UserName" : "pchaluvaraj@dxc.com"
+			}
+		},
+		"IAMUser3" : {
+			"Type" : "AWS::IAM::User",
+			"Properties" : {
+				"Groups" : [{ "Ref" : "AppTeamGroup"}],
+				"LoginProfile": {
+                    "Password": {
+                        "Ref": "PasswordUser3"
+                    },
+					"PasswordResetRequired" : "true"
+                },
+				"Tags": [
+						{"Key": "Application",	"Value": {"Ref": "AWS::StackName"}},
+						{"Key": "Project",		"Value": "DigitalNow"},
+						{"Key": "Name",			"Value": "MPRIYADHARSHINI"},
+						{"Key": "Environment",	"Value": "DXC-DN-SS"}
+                ],
+				"UserName" : "priyadharshini.maruthachalamurthi@dxc.com"
+			}
+		},
+		"IAMUser4" : {
+			"Type" : "AWS::IAM::User",
+			"Properties" : {
+				"Groups" : [{ "Ref" : "AppTeamGroup"}],
+				"LoginProfile": {
+                    "Password": {
+                        "Ref": "PasswordUser4"
+                    },
+					"PasswordResetRequired" : "true"
+                },
+				"Tags": [
+						{"Key": "Application",	"Value": {"Ref": "AWS::StackName"}},
+						{"Key": "Project",		"Value": "DigitalNow"},
+						{"Key": "Name",			"Value": "CNNayanatharha"},
+						{"Key": "Environment",	"Value": "DXC-DN-SS"}
+                ],
+				"UserName" : "cvnayanatharha@dxc.com"
+			}
+		},
+		"IAMUser5" : {
+			"Type" : "AWS::IAM::User",
+			"Properties" : {
+				"Groups" : [{ "Ref" : "AppTeamGroup"}],
+				"LoginProfile": {
+                    "Password": {
+                        "Ref": "PasswordUser5"
+                    },
+					"PasswordResetRequired" : "true"
+                },
+				"Tags": [
+						{"Key": "Application",	"Value": {"Ref": "AWS::StackName"}},
+						{"Key": "Project",		"Value": "DigitalNow"},
+						{"Key": "Name",			"Value": "Venkatesh"},
+						{"Key": "Environment",	"Value": "DXC-DN-SS"}
+                ],
+				"UserName" : "vinturi2@dxc.com"
+			}
+		}
+	}
+}
+					
