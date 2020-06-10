@@ -175,7 +175,7 @@
 						{"Key": "Application",	"Value": {"Ref": "AWS::StackName"}},
 						{"Key": "Project",		"Value": "DigitalNow"},
 						{"Key": "Name",			"Value": "Venkatesh"},
-						{"Key": "Environment",	"Value": "DXC-DN-SS"}
+						{"Key": "Environment",	"Value": "DXC-DN-SS-SS"}
                 ],
 				"UserName" : "vinturi2@dxc.com"
 			}
